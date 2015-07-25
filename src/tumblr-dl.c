@@ -28,6 +28,12 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
   return realsize;
 }
 
+static size_t write_file_callback(void *ptr, size_t size, size_t nmemb, FILE *stream)
+{
+  size_t written = fwrite(ptr, size, nmemb, stream);
+  return written;
+}
+
 int request_content(char* url, char** content)
 {
   CURL* curl;
@@ -63,6 +69,37 @@ int request_content(char* url, char** content)
 
   curl_easy_cleanup(curl);
   free(chunk.memory);
+
+  return 0;
+}
+
+int download_content(char* url, char* output_filename)
+{
+  CURL *curl;
+  CURLcode result;
+  curl = curl_easy_init();
+
+  if (!curl){
+    fprintf(stderr, "Failed");
+    return 1;
+  }
+
+  FILE* file = fopen(output_filename, "wb");
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2460.0 Safari/537.36"); /* requesting like Chrome */
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_file_callback);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+
+  result = curl_easy_perform(curl);
+
+  if (result != CURLE_OK) {
+    fprintf(stderr, "Request Falied Error: %s\n", curl_easy_strerror(result));
+    return 2;
+  }
+
+  curl_easy_cleanup(curl);
+  fclose(file);
 
   return 0;
 }
@@ -112,7 +149,7 @@ int main(int argc, char* argv[])
   request_content(target_url, &content);
   extract_url(content, "<source src=['\"]([^\"]+)['\"][^>]+>" , &target_url);
 
-  printf("%s\n", target_url);
+  download_content(target_url, "./tumblr-video.mp4");
 
   return 0;
 }
