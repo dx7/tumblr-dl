@@ -9,10 +9,12 @@ struct memory_struct {
   size_t size;
 };
 
-static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp)
+typedef size_t (write_cb)(void* content, size_t size, size_t nmemb, void* stream);
+
+static size_t write_memory_callback(void* content, size_t size, size_t nmemb, void* stream)
 {
   size_t realsize = size * nmemb;
-  struct memory_struct *mem = (struct memory_struct*) userp;
+  struct memory_struct *mem = (struct memory_struct*) stream;
   mem->memory = realloc(mem->memory, mem->size + realsize + 1);
 
   if (mem->memory == NULL) {
@@ -21,59 +23,20 @@ static size_t write_memory_callback(void *contents, size_t size, size_t nmemb, v
     return 1;
   }
 
-  memcpy(&(mem->memory[mem->size]), contents, realsize);
+  memcpy(&(mem->memory[mem->size]), content, realsize);
   mem->size += realsize;
   mem->memory[mem->size] = 0;
 
   return realsize;
 }
 
-static size_t write_file_callback(void *ptr, size_t size, size_t nmemb, FILE *stream)
+static size_t write_file_callback(void* content, size_t size, size_t nmemb, void* stream)
 {
-  size_t written = fwrite(ptr, size, nmemb, stream);
+  size_t written = fwrite(content, size, nmemb, stream);
   return written;
 }
 
-int request_content(char* url, char** content)
-{
-  CURL* curl;
-  CURLcode result;
-
-  struct memory_struct chunk;
-  chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
-  chunk.size = 0;
-
-  curl = curl_easy_init();
-
-  if (!curl) {
-    fprintf(stderr, "Failed");
-    return 1;
-  }
-
-  curl_easy_setopt(curl, CURLOPT_URL, url);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2460.0 Safari/537.36"); /* requesting like Chrome */
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_memory_callback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) &chunk);
-
-  result = curl_easy_perform(curl);
-
-  if (result != CURLE_OK) {
-    fprintf(stderr, "Request Falied Error: %s\n", curl_easy_strerror(result));
-    return 2;
-  }
-
-  /* chunk.memory points to a memory block that is chunk.size bytes big with the content */
-  printf("%lu bytes received\n", (long) chunk.size);
-  *content = chunk.memory;
-
-  curl_easy_cleanup(curl);
-  free(chunk.memory);
-
-  return 0;
-}
-
-int download_content(char* url, char* output_filename)
+int curl(char* url, write_cb write_function, void* write_data)
 {
   CURL *curl;
   CURLcode result;
@@ -84,12 +47,11 @@ int download_content(char* url, char* output_filename)
     return 1;
   }
 
-  FILE* file = fopen(output_filename, "wb");
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/46.0.2460.0 Safari/537.36"); /* requesting like Chrome */
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_file_callback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_function);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*) write_data);
 
   result = curl_easy_perform(curl);
 
@@ -99,7 +61,6 @@ int download_content(char* url, char* output_filename)
   }
 
   curl_easy_cleanup(curl);
-  fclose(file);
 
   return 0;
 }
@@ -119,7 +80,7 @@ int extract_url(char* content, char* regex_s, char** url)
 
   reti = regexec(&regex, content, 2, matches, 0);
   if (!reti) {
-    puts("Match");
+    // puts("Match");
     // printf("Line: %.*s\n", (int)(matches[0].rm_eo - matches[0].rm_so), content + matches[0].rm_so);
     // printf("Group: %.*s\n", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
     asprintf(url, "%.*s", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
@@ -140,16 +101,22 @@ int extract_url(char* content, char* regex_s, char** url)
 int main(int argc, char* argv[])
 {
   char* url = argv[1];
-  char* content;
   char* target_url;
+  FILE* file = fopen("./tumblr-video.mp4", "wb");
 
-  request_content(url, &content);
-  extract_url(content, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>", &target_url);
+  struct memory_struct chunk;
+  chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
+  chunk.size = 0;
 
-  request_content(target_url, &content);
-  extract_url(content, "<source src=['\"]([^\"]+)['\"][^>]+>" , &target_url);
+  curl(url, write_memory_callback, &chunk);
+  extract_url(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>", &target_url);
 
-  download_content(target_url, "./tumblr-video.mp4");
+  curl(target_url, write_memory_callback, &chunk);
+  extract_url(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>" , &target_url);
 
+  curl(target_url, write_file_callback, file);
+
+  free(chunk.memory);
+  fclose(file);
   return 0;
 }
