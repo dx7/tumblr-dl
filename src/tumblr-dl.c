@@ -65,57 +65,58 @@ int curl(char* url, write_cb write_function, void* write_data)
   return 0;
 }
 
-char* extract_url(char* content, char* regex_s)
+char** extract_str(char* content, char* pattern)
 {
-  char* url;
-  regex_t regex;
-  int reti;
-  char msgbuf[100];
-  regmatch_t matches[2];
+  regex_t preg;
+  int reti = regcomp(&preg, pattern, REG_EXTENDED);
 
-  reti = regcomp(&regex, regex_s, REG_EXTENDED);
   if (reti) {
     fprintf(stderr, "Regex Compile Error\n");
-    return "";
+    return NULL;
   }
 
-  reti = regexec(&regex, content, 2, matches, 0);
-  if (!reti) {
-    // puts("Match");
-    // printf("Line: %.*s\n", (int)(matches[0].rm_eo - matches[0].rm_so), content + matches[0].rm_so);
-    // printf("Group: %.*s\n", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
-    asprintf(&url, "%.*s", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
-  }
-  else if (reti == REG_NOMATCH) {
-    puts("No match");
-  }
-  else {
-    regerror(reti, &regex, msgbuf, sizeof(msgbuf));
+  regmatch_t pmath[preg.re_nsub + 1];
+  reti = regexec(&preg, content, preg.re_nsub + 1, pmath, 0);
+
+  if (reti) {
+    char msgbuf[100];
+    regerror(reti, &preg, msgbuf, sizeof(msgbuf));
     fprintf(stderr, "Regex match failed: %s\n", msgbuf);
-    return "";
+    return NULL;
   }
 
-  regfree(&regex);
-  return url;
+  char** matches = malloc(sizeof(char*) * (preg.re_nsub + 1));
+  for (int i = 0; i < preg.re_nsub + 1; ++i) {
+    // printf("%d: %.*s\n", i, (int)(pmath[i].rm_eo - pmath[i].rm_so), content + pmath[i].rm_so);
+    asprintf(&matches[i], "%.*s", (int)(pmath[i].rm_eo - pmath[i].rm_so), content + pmath[i].rm_so);
+  }
+
+  regfree(&preg);
+  return matches;
 }
 
 int main(int argc, char* argv[])
 {
   char* url = argv[1];
-  char* target_url;
-  FILE* file = fopen("./tumblr-video.mp4", "wb");
+  char** target_url;
+  char* filename;
+  char** filename_parts = extract_str(url, "^https?://([^.]+)[.]tumblr.com/post/([0-9]+)/.*$");
+  if (!filename_parts) return 1;
 
   struct memory_struct chunk;
   chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
   chunk.size = 0;
 
   curl(url, write_memory_callback, &chunk);
-  target_url = extract_url(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>");
+  target_url = extract_str(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>");
 
-  curl(target_url, write_memory_callback, &chunk);
-  target_url = extract_url(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>");
+  curl(target_url[1], write_memory_callback, &chunk);
+  target_url = extract_str(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>");
 
-  curl(target_url, write_file_callback, file);
+  asprintf(&filename, "%s-%s.mp4", filename_parts[1], filename_parts[2]);
+  FILE* file = fopen(filename, "wb");
+
+  curl(target_url[1], write_file_callback, file);
 
   free(chunk.memory);
   fclose(file);
