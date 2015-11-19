@@ -1,8 +1,7 @@
-LIBS=-lcurl $(OPTLIBS)
+CFLAGS=-Wall -g
+LDFLAGS=-lcurl
 
-bin/tumblr-dl:
-	@mkdir -p bin
-	$(CC) src/tumblr-dl.c -o bin/tumblr-dl $(LIBS)
+all: tumblr-dl
 
 clean:
-	rm -rf bin
+	rm -f tumblr-dl

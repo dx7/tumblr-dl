@@ -1,3 +1,4 @@
-bin
 *.o
 *.mp4
+*.dSYM
+tumblr-dl
