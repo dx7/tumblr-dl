@@ -65,8 +65,9 @@ int curl(char* url, write_cb write_function, void* write_data)
   return 0;
 }
 
-int extract_url(char* content, char* regex_s, char** url)
+char* extract_url(char* content, char* regex_s)
 {
+  char* url;
   regex_t regex;
   int reti;
   char msgbuf[100];
@@ -75,7 +76,7 @@ int extract_url(char* content, char* regex_s, char** url)
   reti = regcomp(&regex, regex_s, REG_EXTENDED);
   if (reti) {
     fprintf(stderr, "Regex Compile Error\n");
-    return 1;
+    return "";
   }
 
   reti = regexec(&regex, content, 2, matches, 0);
@@ -83,7 +84,7 @@ int extract_url(char* content, char* regex_s, char** url)
     // puts("Match");
     // printf("Line: %.*s\n", (int)(matches[0].rm_eo - matches[0].rm_so), content + matches[0].rm_so);
     // printf("Group: %.*s\n", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
-    asprintf(url, "%.*s", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
+    asprintf(&url, "%.*s", (int)(matches[1].rm_eo - matches[1].rm_so), content + matches[1].rm_so);
   }
   else if (reti == REG_NOMATCH) {
     puts("No match");
@@ -91,11 +92,11 @@ int extract_url(char* content, char* regex_s, char** url)
   else {
     regerror(reti, &regex, msgbuf, sizeof(msgbuf));
     fprintf(stderr, "Regex match failed: %s\n", msgbuf);
-    return 2;
+    return "";
   }
 
   regfree(&regex);
-  return 0;
+  return url;
 }
 
 int main(int argc, char* argv[])
@@ -109,10 +110,10 @@ int main(int argc, char* argv[])
   chunk.size = 0;
 
   curl(url, write_memory_callback, &chunk);
-  extract_url(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>", &target_url);
+  target_url = extract_url(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>");
 
   curl(target_url, write_memory_callback, &chunk);
-  extract_url(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>" , &target_url);
+  target_url = extract_url(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>");
 
   curl(target_url, write_file_callback, file);
 
