@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
   char* url = argv[1];
   char** target_url;
   char* filename;
-  char** filename_parts = extract_str(url, "^https?://([^.]+)[.]tumblr.com/post/([0-9]+)/.*$");
+  char** filename_parts = extract_str(url, "^https?://([^.]+)[.]tumblr.com/post/([0-9]+).*$");
   if (!filename_parts) return 1;
 
   struct memory_struct chunk;
