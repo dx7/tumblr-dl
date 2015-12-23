@@ -1,5 +1,6 @@
-CFLAGS=-Wall -g
-LDFLAGS=-lcurl
+CFLAGS=-Wall -g -I/usr/local/include
+LDFLAGS=-L/usr/local/lib
+LDLIBS=-lcurl
 
 all: tumblr-dl
 
