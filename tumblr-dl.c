@@ -112,38 +112,52 @@ int main(int argc, char* argv[])
   chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
   chunk.size = 0;
 
-  // Get iframe
+  // request the whole page content
   curl(url, write_memory_callback, &chunk);
+
+  // extract iframe url
   extract_str(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>", &target_url, &n_matches);
+
+  // reset the chunk
   free(chunk.memory);
   chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
   chunk.size = 0;
+
+  // request the iframe content
   curl(target_url[1], write_memory_callback, &chunk);
-  for (int i=0; i < *n_matches; i++) {
-    free(target_url[i]);
-  }
+
+  // clean up iframe url data
+  for (int i=0; i < *n_matches; i++) free(target_url[i]);
   free(target_url);
   free(n_matches);
 
-  // Extract new filename
+  // extract filename from original post url
   extract_str(url, "^https?://([^.]+)[.]tumblr.com/post/([0-9]+).*$", &filename_parts, &n_filename_parts);
   asprintf(&filename, "%s-%s.mp4", filename_parts[1], filename_parts[2]);
-  for (int i=0; i < *n_filename_parts; i++) {
-    free(filename_parts[i]);
-  }
+
+  // clean up filename extraction data
+  for (int i=0; i < *n_filename_parts; i++) free(filename_parts[i]);
   free(filename_parts);
   free(n_filename_parts);
 
-  // Get the video
+  // extract video url from iframe content
   extract_str(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>", &target_url, &n_matches);
+
+  // clean up iframe content
   free(chunk.memory);
+
+  // create a file to write the video
   FILE* file = fopen(filename, "wb");
-  curl(target_url[1], write_file_callback, file);
+
+  // clean up video filename data
   free(filename);
+
+  // write the video to a file
+  curl(target_url[1], write_file_callback, file);
   fclose(file);
-  for (int i=0; i < *n_matches; i++) {
-    free(target_url[i]);
-  }
+
+  // clean up video url data
+  for (int i=0; i < *n_matches; i++) free(target_url[i]);
   free(target_url);
   free(n_matches);
 
