@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
   // request the iframe content
   curl(target_url[1], write_memory_callback, &chunk);
 
-  // clean up iframe url data
+  // free iframe url data
   for (int i=0; i < *n_matches; i++) free(target_url[i]);
   free(target_url);
   free(n_matches);
@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
   extract_str(url, "^https?://([^.]+)[.]tumblr.com/post/([0-9]+).*$", &filename_parts, &n_filename_parts);
   asprintf(&filename, "%s-%s.mp4", filename_parts[1], filename_parts[2]);
 
-  // clean up filename extraction data
+  // free filename extraction data
   for (int i=0; i < *n_filename_parts; i++) free(filename_parts[i]);
   free(filename_parts);
   free(n_filename_parts);
@@ -143,20 +143,20 @@ int main(int argc, char* argv[])
   // extract video url from iframe content
   extract_str(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>", &target_url, &n_matches);
 
-  // clean up iframe content
+  // free iframe data
   free(chunk.memory);
 
   // create a file to write the video
   FILE* file = fopen(filename, "wb");
 
-  // clean up video filename data
+  // free video filename data
   free(filename);
 
   // write the video to a file
   curl(target_url[1], write_file_callback, file);
   fclose(file);
 
-  // clean up video url data
+  // free video url data
   for (int i=0; i < *n_matches; i++) free(target_url[i]);
   free(target_url);
   free(n_matches);
