@@ -5,28 +5,28 @@
 #include <regex.h>
 #include <curl/curl.h>
 
-struct memory_struct {
+typedef struct {
   char* memory;
   size_t size;
-};
+} blob_t;
 
 typedef size_t (write_cb)(void* content, size_t size, size_t nmemb, void* stream);
 
 static size_t write_memory_callback(void* content, size_t size, size_t nmemb, void* stream)
 {
   size_t realsize = size * nmemb;
-  struct memory_struct *mem = (struct memory_struct*) stream;
-  mem->memory = realloc(mem->memory, mem->size + realsize + 1);
+  blob_t* blob = (blob_t*) stream;
+  blob->memory = realloc(blob->memory, blob->size + realsize + 1);
 
-  if (mem->memory == NULL) {
+  if (blob->memory == NULL) {
     /* out of memory */
     fprintf(stderr, "Not Enough Memory Error \n");
     return 1;
   }
 
-  memcpy(&(mem->memory[mem->size]), content, realsize);
-  mem->size += realsize;
-  mem->memory[mem->size] = 0;
+  memcpy(&(blob->memory[blob->size]), content, realsize);
+  blob->size += realsize;
+  blob->memory[blob->size] = 0;
 
   return realsize;
 }
@@ -108,23 +108,23 @@ int main(int argc, char* argv[])
   int* n_filename_parts;
   int* n_matches;
 
-  struct memory_struct chunk;
-  chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
-  chunk.size = 0;
+  blob_t blob;
+  blob.memory = malloc(1); /* will be grown as needed by the realloc above */
+  blob.size = 0;
 
   // request the whole page content
-  curl(url, write_memory_callback, &chunk);
+  curl(url, write_memory_callback, &blob);
 
   // extract iframe url
-  extract_str(chunk.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>", &target_url, &n_matches);
+  extract_str(blob.memory, "<iframe src=['\"]([^']+)['\"].*tumblr_video_iframe[^>]+>", &target_url, &n_matches);
 
-  // reset the chunk
-  free(chunk.memory);
-  chunk.memory = malloc(1); /* will be grown as needed by the realloc above */
-  chunk.size = 0;
+  // reset the blob
+  free(blob.memory);
+  blob.memory = malloc(1); /* will be grown as needed by the realloc above */
+  blob.size = 0;
 
   // request the iframe content
-  curl(target_url[1], write_memory_callback, &chunk);
+  curl(target_url[1], write_memory_callback, &blob);
 
   // free iframe url data
   for (int i=0; i < *n_matches; i++) free(target_url[i]);
@@ -141,10 +141,10 @@ int main(int argc, char* argv[])
   free(n_filename_parts);
 
   // extract video url from iframe content
-  extract_str(chunk.memory, "<source src=['\"]([^\"]+)['\"][^>]+>", &target_url, &n_matches);
+  extract_str(blob.memory, "<source src=['\"]([^\"]+)['\"][^>]+>", &target_url, &n_matches);
 
   // free iframe data
-  free(chunk.memory);
+  free(blob.memory);
 
   // create a file to write the video
   FILE* file = fopen(filename, "wb");
