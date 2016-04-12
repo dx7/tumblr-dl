@@ -132,7 +132,7 @@ int main(int __unused argc, char* argv[])
   free(n_matches);
 
   // extract filename from original post url
-  extract_str(url, "^https?://([^.]+)[.]tumblr.com/post/([0-9]+).*$", &filename_parts, &n_filename_parts);
+  extract_str(url, "^https?://([^/]+)/post/([0-9]+).*$", &filename_parts, &n_filename_parts);
   asprintf(&filename, "%s-%s.mp4", filename_parts[1], filename_parts[2]);
 
   // free filename extraction data
