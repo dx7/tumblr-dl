@@ -99,7 +99,7 @@ int extract_str(char* content, char* pattern, char*** matches, int** n_matches)
   return 0;
 }
 
-int main(int argc, char* argv[])
+int main(int __unused argc, char* argv[])
 {
   char* url = argv[1];
   char* filename;
