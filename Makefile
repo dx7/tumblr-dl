@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -g -I/usr/local/include
+ICFLAGS=-Wall -Wextra -g -I/usr/local/include
 LDFLAGS=-L/usr/local/lib
 LDLIBS=-lcurl
 
