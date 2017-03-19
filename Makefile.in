@@ -1,0 +1,22 @@
+CC=@CC@
+CPP=@CPP@
+CFLAGS=@CFLAGS@
+CPPFLAGS=@CPPFLAGS@
+LDFLAGS=@LDFLAGS@
+LDLIBS=@LIBS@ @LIBCURL@
+VPATH=src
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+bindir=@bindir@
+
+all: tumblr-dl
+
+install: tumblr-dl
+	install tumblr-dl $(bindir)
+
+uninstall:
+	rm -f $(bindir)/tumblr-dl
+
+clean:
+	rm -rf config.status Makefile tumblr-dl tumblr-dl.dSYM
