@@ -13,6 +13,7 @@ bindir=@bindir@
 all: tumblr-dl
 
 install: tumblr-dl
+	mkdir -p $(bindir)
 	install tumblr-dl $(bindir)
 
 uninstall:
